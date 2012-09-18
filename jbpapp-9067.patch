@@ -1,0 +1,210 @@
+Index: connector/src/main/org/jboss/resource/connectionmanager/JBossManagedConnectionPool.java
+===================================================================
+--- connector/src/main/org/jboss/resource/connectionmanager/JBossManagedConnectionPool.java	(revision 113571)
++++ connector/src/main/org/jboss/resource/connectionmanager/JBossManagedConnectionPool.java	(working copy)
+@@ -75,6 +75,7 @@
+  * @author <a href="mailto:adrian@jboss.org">Adrian Brock</a>
+  * @author <a href="mailto:weston.price@jboss.com">Weston Price</a>
+  * @author <a href="mailto:jesper.pedersen@jboss.org">Jesper Pedersen</a>
++ * @author navssurtani
+  * 
+  * @version $Revision$
+  */
+@@ -803,7 +804,7 @@
+          int count = 0;
+          synchronized (subPools)
+          {
+-            for (Iterator i = subPools.values().iterator(); i.hasNext(); )
++            for (Iterator<SubPoolContext> i = subPools.values().iterator(); i.hasNext(); )
+             {
+                SubPoolContext subPool = (SubPoolContext) i.next();
+                count += subPool.getSubPool().getConnectionInUseCount();
+@@ -865,7 +866,7 @@
+          int count = 0;
+          synchronized (subPools)
+          {
+-            for (Iterator i = subPools.values().iterator(); i.hasNext(); )
++            for (Iterator<SubPoolContext> i = subPools.values().iterator(); i.hasNext(); )
+             {
+                SubPoolContext subPool = (SubPoolContext) i.next();
+                count += subPool.getSubPool().getConnectionCount();
+@@ -883,7 +884,7 @@
+          int count = 0;
+          synchronized (subPools)
+          {
+-            for (Iterator i = subPools.values().iterator(); i.hasNext(); )
++            for (Iterator<SubPoolContext> i = subPools.values().iterator(); i.hasNext(); )
+             {
+                SubPoolContext subPool = (SubPoolContext) i.next();
+                count += subPool.getSubPool().getConnectionCreatedCount();
+@@ -897,7 +898,7 @@
+          int count = 0;
+          synchronized (subPools)
+          {
+-            for (Iterator i = subPools.values().iterator(); i.hasNext(); )
++            for (Iterator<SubPoolContext> i = subPools.values().iterator(); i.hasNext(); )
+             {
+                SubPoolContext subPool = (SubPoolContext) i.next();
+                count += subPool.getSubPool().getConnectionDestroyedCount();
+@@ -913,7 +914,7 @@
+          {
+             if (subPools.size() == 0)
+                return poolParams.maxSize;
+-            for (Iterator i = subPools.values().iterator(); i.hasNext(); )
++            for (Iterator<SubPoolContext> i = subPools.values().iterator(); i.hasNext(); )
+             {
+                SubPoolContext subPool = (SubPoolContext) i.next();
+                count += subPool.getSubPool().getAvailableConnections();
+@@ -927,7 +928,7 @@
+          int count = 0;
+          synchronized (subPools)
+          {
+-            for (Iterator i = subPools.values().iterator(); i.hasNext(); )
++            for (Iterator<SubPoolContext> i = subPools.values().iterator(); i.hasNext(); )
+             {
+                SubPoolContext subPool = (SubPoolContext) i.next();
+                count += subPool.getSubPool().getMaxConnectionsInUseCount();
+@@ -940,7 +941,7 @@
+       {
+          synchronized (subPools)
+          {
+-            for (Iterator i = subPools.values().iterator(); i.hasNext(); )
++            for (Iterator<SubPoolContext> i = subPools.values().iterator(); i.hasNext(); )
+             {
+                SubPoolContext subPool = (SubPoolContext) i.next();
+                subPool.getSubPool().shutdown();
+@@ -953,7 +954,7 @@
+       {
+          synchronized (subPools)
+          {
+-            for (Iterator i = subPools.values().iterator(); i.hasNext(); )
++            for (Iterator<SubPoolContext> i = subPools.values().iterator(); i.hasNext(); )
+             {
+                SubPoolContext subPool = (SubPoolContext) i.next();
+                subPool.getSubPool().shutdown();
+@@ -972,7 +973,7 @@
+          {
+             synchronized (subPools)
+             {
+-               for (Iterator i = subPools.values().iterator(); i.hasNext(); )
++               for (Iterator<SubPoolContext> i = subPools.values().iterator(); i.hasNext(); )
+                {
+                   SubPoolContext subPoolContext = (SubPoolContext) i.next();
+                   InternalManagedConnectionPool other = subPoolContext.getSubPool();
+@@ -994,7 +995,7 @@
+       {
+          synchronized (subPools)
+          {
+-            for (Iterator i = subPools.values().iterator(); i.hasNext(); )
++            for (Iterator<SubPoolContext> i = subPools.values().iterator(); i.hasNext(); )
+             {
+                SubPoolContext subPool = (SubPoolContext) i.next();
+                subPool.getSubPool().shutdown();
+@@ -1072,11 +1073,11 @@
+          subPoolStats.setPrefill(poolParams.prefill);
+          subPoolStats.setNoTxnSeperatePool(noTxSeparatePools);
+          
+-         for(Iterator iter = subPools.values().iterator(); iter.hasNext();)
++         for(Iterator<SubPoolContext> iter = subPools.values().iterator(); iter.hasNext();)
+          {   
+             JBossSubPoolStatistics stat = new JBossSubPoolStatistics();
+             SubPoolContext subContext = (SubPoolContext)iter.next();
+-            final InternalManagedConnectionPool internalPool = subContext.getSubPool();
++            final InternalManagedConnectionPool internalPool  = subContext.getSubPool();
+             stat.setAvailableConnections(internalPool.getAvailableConnections());
+             stat.setConnectionsDestroyed(internalPool.getConnectionDestroyedCount());
+             stat.setConnectionsInUse(internalPool.getConnectionInUseCount());
+@@ -1085,6 +1086,8 @@
+             stat.setAverageBlockTime(internalPool.getAverageBlockTime());
+             stat.setMaxWaitTime(internalPool.getMaxWaitTime());
+             stat.setTotalTimedOut(internalPool.getTimedOut());
++            stat.setWaitingQueue(internalPool.getWaitingQueueLength());
++            
+             subPoolStats.addSubPool(stat);
+          }
+ 
+@@ -1094,7 +1097,7 @@
+       public Object listUnderlyingNativeConnectionStatistics()
+       {
+           String statistics = "";
+-          for(Iterator iter = subPools.values().iterator(); iter.hasNext();)
++          for(Iterator<SubPoolContext> iter = subPools.values().iterator(); iter.hasNext();)
+           {                      
+               SubPoolContext subContext = (SubPoolContext)iter.next();
+               InternalManagedConnectionPool internalPool = subContext.getSubPool();
+Index: connector/src/main/org/jboss/resource/connectionmanager/InternalManagedConnectionPool.java
+===================================================================
+--- connector/src/main/org/jboss/resource/connectionmanager/InternalManagedConnectionPool.java	(revision 113571)
++++ connector/src/main/org/jboss/resource/connectionmanager/InternalManagedConnectionPool.java	(working copy)
+@@ -48,6 +48,7 @@
+  * @author <a href="mailto:adrian@jboss.org">Adrian Brock</a>
+  * @author <a href="mailto:weston.price@jboss.com">Weston Price</a>
+  * @author <a href="mailto:jesper.pedersen@jboss.org">Jesper Pedersen</a>
++ * @author navssurtani
+  * @version $Revision$
+  */
+ public class InternalManagedConnectionPool implements IdleConnectionRemovalSupport
+@@ -800,6 +801,14 @@
+       }
+ 
+    }
++   
++   
++   // navssurtani: method in description of JIRA task: JBPAPP-9067
++   public int getWaitingQueueLength()
++   {
++       return permits.getQueueLength();
++   }
++   
+    private ConnectionListener removeForFrequencyCheck()
+    {
+ 
+Index: connector/src/main/org/jboss/resource/statistic/pool/JBossSubPoolStatistics.java
+===================================================================
+--- connector/src/main/org/jboss/resource/statistic/pool/JBossSubPoolStatistics.java	(revision 113571)
++++ connector/src/main/org/jboss/resource/statistic/pool/JBossSubPoolStatistics.java	(working copy)
+@@ -27,6 +27,7 @@
+  * A SubPoolStatisticGroup.
+  * 
+  * @author <a href="weston.price@jboss.com">Weston Price</a>
++ * @author navssurtani
+  * @version $Revision$
+  */
+ public class JBossSubPoolStatistics implements JBossStatistics
+@@ -58,6 +59,9 @@
+    
+    /** The maxWaitTime */
+    private long maxWaitTime;
++   
++   /** The length of the waiting queue */
++   private int waitingQueue;
+ 
+    /**
+     * Get the availableConnections.
+@@ -249,4 +253,26 @@
+       this.maxWaitTime = maxWaitTime;
+    }
+    
++   // navssurtani - adding functionality for JBPAPP-9067 here.
++   /**
++    * Set the length of the waiting queue.
++    * 
++    * @param length - the value of the queue length.
++    */
++   public void setWaitingQueue(int length)
++   {
++      this.waitingQueue = length;
++   }
++   
++   /**
++    * Get the length of the waiting queue
++    * 
++    * @return - the waiting queue length integer.
++    */
++   
++   public int getWaitingQueue()
++   {
++      return waitingQueue;
++   }
++   
+ }
